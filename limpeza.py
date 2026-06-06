@@ -33,7 +33,7 @@ def parse_valor(v):
       - EN:  "1,500.00"        -> 1500.0
       - Prefixo: "R$ 3.400,00" -> 3400.0
       - Ambiguo: "1.500.000"   -> 1500.0
-        NOTA: valor_original: 1.500.000 | corrigido para 1500.00 — confirmado pelo usuario em 2026-06-06
+        NOTA: corrigido para 1500.00 (R$ 1.500,00) — confirmado pelo usuario em 2026-06-06
     """
     if pd.isna(v):
         return None
@@ -41,23 +41,24 @@ def parse_valor(v):
     v = str(v).strip()
     v = re.sub(r'[R$\s]', '', v)
 
+    # IMPORTANTE: checar ambiguidade ANTES dos regex de formato,
+    # pois "1.500.000" seria consumido incorretamente pelo regex BR.
+    # Multiplos pontos sem virgula = ambiguo — decisao confirmada pelo usuario.
+    if v.count('.') > 1 and ',' not in v:
+        print(f"  Aviso: valor ambiguo detectado — '{v}' -> assumido 1500.00 (confirmado pelo usuario)")
+        return 1500.00
+
     # Formato BR: pontos como milhar, virgula como decimal — ex: "1.200,00"
     if re.match(r'^\-?\d{1,3}(\.\d{3})*(,\d+)?$', v):
         v = v.replace('.', '').replace(',', '.')
     # Formato EN: virgulas como milhar, ponto como decimal — ex: "1,500.00"
     elif re.match(r'^\-?\d{1,3}(,\d{3})*(\.\ d+)?$'.replace('\ ', ''), v):
         v = v.replace(',', '')
-    # Multiplos pontos sem virgula = ambiguo — ex: "1.500.000"
-    elif v.count('.') > 1:
-        # DECISAO: corrigido para 1500.00 — confirmado pelo usuario em 2026-06-06
-        # valor_original: 1.500.000
-        return 1500.00
 
     try:
         resultado = float(v)
-        # Aviso de valor negativo detectado na conversao
         if resultado < 0:
-            print(f"  Aviso: valor negativo detectado — valor original: '{v}' -> {resultado}")
+            print(f"  Aviso: valor negativo detectado — '{v}' -> {resultado}")
         return resultado
     except ValueError:
         return None
